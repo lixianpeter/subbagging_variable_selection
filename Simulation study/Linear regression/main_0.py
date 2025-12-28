@@ -352,7 +352,7 @@ def sim_saver(k_N, m_N, N):
                               SE3_subsample.tolist() +
                               SE4_subsample.tolist() +
                               SE5_subsample.tolist() +
-                              SE5_subsample.tolist() +
+                              SE6_subsample.tolist() +
                               CI1_subsample.astype(int).tolist() +
                               CI2_subsample.astype(int).tolist() +
                               CI3_subsample.astype(int).tolist() +
