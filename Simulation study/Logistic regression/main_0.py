@@ -1,5 +1,4 @@
-rep_ind_current = 1
-
+rep_ind_current=1
 #!/usr/bin/env python
 # coding: utf-8
 
@@ -76,7 +75,15 @@ def second_derivative(f,beta,*args):
     
 # def mse_first_derivative(beta,y,x):
 #     return -2*(x.T@(y-x@beta))/len(y)
-    
+
+# def mse_first_derivative_per_obs(beta, y, x):
+#     """
+#     Returns per-observation first derivatives g_i(beta)
+#     Shape: (m, p)
+#     """
+#     r = y - x @ beta                    # (m,)
+#     return -2 * x * r[:, None]          # (m, p)
+
 # def mse_second_derivative(beta,y,x):
 #     return 2*x.T@x/len(y)
 
@@ -95,7 +102,13 @@ def logistic_first_derivative(beta,y,x):
     X=x
     p=logistic(X@beta)
     return -(Y@X-p@X)/len(y)
-    
+
+def logistic_first_derivative_per_obs(beta, y, x):
+    X = x
+    Y = y
+    p = logistic(X @ beta)          
+    return X * (p - Y)[:, None]    
+
 def logistic_second_derivative(beta,y,x):
     Y=y
     X=x
@@ -116,9 +129,10 @@ def subsample_estimate(file_name,subsize,f,p = 200): # subsize is k_N; f is the 
     y_subsample = subsample[:,0]
     x_subsample = subsample[:,1:]
     beta_true = np.concatenate([
-            np.linspace(-1, 1, 12),
+        # setting boundaries to avoid true beta close to 0. Curret set is 0.25
+            np.r_[np.linspace(-1, -0.25, 6), np.linspace(0.25, 1, 6)],
             np.zeros(p - 12)])
-    
+    k_N = len(y_subsample)
     # obtain subsample estimates
     beta_subsample = minimize(f, beta_true, method = 'BFGS',    
                             args = (y_subsample,x_subsample)).x
@@ -150,9 +164,11 @@ def subsample_estimate(file_name,subsize,f,p = 200): # subsize is k_N; f is the 
     # p = logistic(x_subsample@beta_true)          
     # r = (p - y_subsample)                      
     # G =  x_subsample * r[:, None]               # (m, p), rows are g_i^T  
-    Sigma_hat_variance_subsample = np.outer(logistic_first_derivative(beta_subsample, y_subsample, x_subsample),
-                                                        logistic_first_derivative(beta_subsample, y_subsample, x_subsample)) / len(y_subsample)
-
+    
+    # We need to use the correct first derviative for each observation not the average derivative
+    Sigma_hat_variance_subsample = logistic_first_derivative_per_obs(beta_subsample, y_subsample, x_subsample).T @\
+                            logistic_first_derivative_per_obs(beta_subsample, y_subsample, x_subsample)/k_N
+    
     V_subsample = second_derivative_subsample
     #V_true = logistic_second_derivative(beta_true, y_subsample, x_subsample)
     
@@ -188,7 +204,8 @@ def LSA(beta,beta_subsample,second_derivative_subsample,lamda=0):
 def subbag(file_name, k_N, m_N, f, N, p = 200):
     # First generate full sample
     beta_true = np.concatenate([
-            np.linspace(-1, 1, 12),
+        # setting boundaries to avoid true beta close to 0. Curret set is 0.25
+            np.r_[np.linspace(-1, -0.25, 6), np.linspace(0.25, 1, 6)],
             np.zeros(p - 12)])
     with open(file_name, mode='w',newline='') as file:
         f_writer = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -296,7 +313,7 @@ def SBIC(k_N, m_N, result, initial_value, lamda_constant = 5, interval = 0.00000
 def sim_saver(k_N, m_N, N, p = 200):
     alpha=(k_N * m_N)/N
     beta_true = np.concatenate([
-            np.linspace(-1, 1, 12),
+            np.r_[np.linspace(-1, -0.25, 6), np.linspace(0.25, 1, 6)],
             np.zeros(p - 12)])
     # prepare writing for subsample results
     # SE_fullsample=np.sqrt((1+1/alpha)*np.linalg.inv(second_derivative(mse,beta,y,x)[[0,1,4],:][:,[0,1,4]])[[0,1,2],[0,1,2]])
@@ -336,7 +353,7 @@ def sim_saver(k_N, m_N, N, p = 200):
         
         f_writer = csv.writer(f, delimiter = ',', quotechar = '"', quoting=csv.QUOTE_MINIMAL)
         
-        for i in range(0,2):
+        for i in range(0,10):
             
             random.seed(rep_ind_current+i)
             
@@ -371,9 +388,9 @@ def sim_saver(k_N, m_N, N, p = 200):
             # SE1_subsample = np.sqrt((1 + 1/alpha)/N * np.linalg.inv(np.mean(result[2], axis = 0)).T @ \
             #                         np.mean(result[4], axis = 0) @\
             #                         np.linalg.inv(np.mean(result[4], axis = 0)))[[0,1,4],[0,1,4]]
-            SE1_subsample = np.sqrt(((1 + 1/alpha)/N * np.linalg.inv(np.mean(result[1], axis = 0)[:12, :12]).T @ \
+            SE1_subsample = np.sqrt(((1 + 1/alpha)/N * np.linalg.inv(np.mean(result[3], axis = 0)[:12, :12]).T @ \
                         np.mean(result[2], axis = 0)[:12, :12] @\
-                        np.linalg.inv(np.mean(result[2], axis = 0)[:12, :12]))[np.arange(12), np.arange(12)])
+                        np.linalg.inv(np.mean(result[3], axis = 0)[:12, :12]))[np.arange(12), np.arange(12)])
             # SE4_subsample = np.sqrt((1 + 1/alpha)/N * np.linalg.inv(np.mean(result[3], axis = 0)).T @ \
             #                         np.mean(result[5], axis = 0) @\
             #                         np.linalg.inv(np.mean(result[3], axis = 0)))[[0,1,4],[0,1,4]]
@@ -385,7 +402,7 @@ def sim_saver(k_N, m_N, N, p = 200):
 
             
             # Coverage of confidence interval based on the SE
-            CI1_subsample = (estimate_lasso_true[:12] + norm.ppf(0.975) * SE1_subsample > np.linspace(-1, 1, 12)) * (estimate_lasso_true[:12] - norm.ppf(0.975) * SE1_subsample < np.linspace(-1, 1, 12))
+            CI1_subsample = (estimate_lasso_true[:12] + norm.ppf(0.975) * SE1_subsample > beta_true[0:12]) * (estimate_lasso_true[:12] - norm.ppf(0.975) * SE1_subsample < beta_true[0:12])
             # CI2_subsample = (estimate_lasso_true[[0,1,4]] + norm.ppf(0.975) * SE2_subsample > [3, 1.5, 2]) * (estimate_lasso_true[[0,1,4]] - norm.ppf(0.975) * SE2_subsample < [3, 1.5, 2])
             # CI3_subsample = (estimate_lasso_true[[0,1,4]] + norm.ppf(0.975) * SE3_subsample > [3, 1.5, 2]) * (estimate_lasso_true[[0,1,4]] - norm.ppf(0.975) * SE3_subsample < [3, 1.5, 2])            
             # CI4_subsample = (estimate_lasso_true[[0,1,4]] + norm.ppf(0.975) * SE4_subsample > [3, 1.5, 2]) * (estimate_lasso_true[[0,1,4]] - norm.ppf(0.975) * SE4_subsample < [3, 1.5, 2])            
@@ -431,7 +448,7 @@ N = 50000
 alpha = 1
 sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p =15)
 
-N = 500000
+N = 50000
 alpha = 0.2
 sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
 sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
@@ -464,7 +481,7 @@ sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 # In[ ]:
 
 
-N = 1000000
+N = 100000
 alpha = 0.2
 sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
 sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
@@ -717,35 +734,6 @@ sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
-
-# In[ ]:
-
-
-# In[121]:
-
-
-A= np.random.randn(1000, 50)
-
-
-# In[129]:
-
-
-A[np.arange(12), np.arange(12) ]
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
 
 
 
