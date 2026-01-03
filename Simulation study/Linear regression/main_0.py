@@ -1,5 +1,3 @@
-rep_ind_current = 1
-
 #!/usr/bin/env python
 # coding: utf-8
 
@@ -219,7 +217,7 @@ def subbag(file_name, k_N, m_N, f, N, p = 200, e_noise = 1):
                 cov=Sigma
             )
             # Linear regression
-            y = x@beta_true + np.random.normal(0,1,e_noise)
+            y = x@beta_true + np.random.normal(0, e_noise, 1)
             f_writer.writerow(y.tolist()+x.tolist())
     file.close()
 
