@@ -1,7 +1,8 @@
+rep_ind_current=1
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[2]:
 
 
 #rep_ind_current = 1
@@ -22,7 +23,7 @@ import pandas as pd
 import multiprocessing
 
 
-# In[ ]:
+# In[3]:
 
 
 # Define some loss functions
@@ -55,7 +56,7 @@ def second_derivative(f,beta,*args):
 
 
 
-# In[ ]:
+# In[4]:
 
 
 # For linear regression
@@ -101,29 +102,28 @@ def mse_second_derivative(beta,y,x):
 #     return X.transpose()*(p*(1-p))@X/len(y)
 
 
-# In[ ]:
+# In[5]:
 
 
 # This function is for a subsample's estimation
 
-def subsample_estimate(file_name,subsize,f,p = 200): # subsize is k_N; f is the loss; p is the dimension
+def subsample_estimate(subsample, f, beta_true = None): #  f is the loss; p is the dimension
 
     # extract one subsample
-    simu_data = pd.read_csv(file_name, header = 0).to_numpy()
-    subsample = simu_data[random.sample(range(1,len(simu_data)), k = subsize)]
+    #simu_data = pd.read_csv(file_name, header = 0).to_numpy()
     y_subsample = subsample[:,0]
     x_subsample = subsample[:,1:]
-    beta_true = np.concatenate([
-        # setting boundaries to avoid true beta close to 0. Current set is 0.25
-            np.r_[np.linspace(-1, -0.25, 6), np.linspace(0.25, 1, 6)],
-            np.zeros(p - 12)])
+    p = x_subsample.shape[1]
+    if (beta_true.all() == None):
+        beta_true = np.zeros(p)
     k_N = len(y_subsample)
 
     
     # Obtain subsample estimates
-    beta_subsample = minimize(f, beta_true, method = 'BFGS',    
-                            args = (y_subsample,x_subsample)).x
-
+    beta_subsample = np.linalg.inv(x_subsample.T@x_subsample)@x_subsample.T@y_subsample
+    #minimize(f, beta_true, method = 'BFGS',    
+                            #args = (y_subsample,x_subsample)).x
+        # (x.tx)^(-1)xy
     # Obtain capital Sigma for linear regression
     second_derivative_subsample = mse_second_derivative(beta_subsample, y_subsample, x_subsample)
 
@@ -141,13 +141,13 @@ def subsample_estimate(file_name,subsize,f,p = 200): # subsize is k_N; f is the 
 
 
 
-# In[ ]:
+# In[6]:
 
 
 # Define the least square approximation
 def LSA(beta,beta_subsample,second_derivative_subsample,lamda=0):
-    approx=0
-    m_N=len(beta_subsample)
+    approx = 0
+    m_N = len(beta_subsample)
     for i in range(0,m_N):
         #iterate through m_N subsamples
         approx += (beta-beta_subsample[i]).transpose()@second_derivative_subsample[i]@(beta-beta_subsample[i])
@@ -157,39 +157,46 @@ def LSA(beta,beta_subsample,second_derivative_subsample,lamda=0):
     return approx + lamda*sum(abs(beta)/np.abs(weights)**2)
 
 
-# In[ ]:
+# In[7]:
 
 
 # This function collects the information from each subsample in a list
-def subbag(file_name, k_N, m_N, f, N, p = 200, e_noise = 1):
+def subbag(k_N, m_N, f, N, beta_true, e_noise = 1):
     # First, generate a full sample
     # Set true parameters
-    beta_true = np.concatenate([
-        # setting boundaries to avoid true beta close to 0. The current set is 0.25
-            np.r_[np.linspace(-1, -0.25, 6), np.linspace(0.25, 1, 6)],
-            np.zeros(p - 12)])
-    # Create a csv file to store the simulated data
-    with open(file_name, mode='w',newline='') as file:
-        f_writer = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        header = ["y"] + [f"x{i}" for i in range(1, p + 1)]
-        f_writer.writerow(header)
+    # beta_true = np.concatenate([
+    #     # setting boundaries to avoid true beta close to 0. The current set is 0.25
+    #         np.r_[np.linspace(-1, -0.25, 6), np.linspace(0.25, 1, 6)],
+    #         np.zeros(p - 12)])
+    p = beta_true.shape[0]
+    # # Create a csv file to store the simulated data
+    # with open(file_name, mode='w',newline='') as file:
+    #     f_writer = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    #     header = ["y"] + [f"x{i}" for i in range(1, p + 1)]
+    #     f_writer.writerow(header)
         
-        # generate the Toeplitz covariance matrix
-        rho = 0.5
-        idx = np.arange(p)
-        Sigma = rho ** np.abs(idx[:, None] - idx[None, :])
-        for n in range(0,N):
-            # Generate correlated covariates
-            x = np.random.multivariate_normal(
-                mean=np.zeros(p),
-                cov=Sigma
-            )
-            # Linear regression; generate response variable
-            y = x@beta_true + np.random.normal(0, e_noise, 1)
-            # Write to the csv files
-            f_writer.writerow(y.tolist()+x.tolist())
-    file.close()
+    # generate the p by p Toeplitz covariance matrix
+    rho = 0.5
+    idx = np.arange(p)
+    Sigma = rho ** np.abs(idx[:, None] - idx[None, :])
+    
+    # Generate correlated covariates
+    x = np.random.multivariate_normal(
+    mean=np.zeros(p),
+    cov=Sigma,
+    size=N
+    )   # shape: (N, p)
 
+    # Generate all noise at once
+    eps = np.random.normal(
+    loc=0,
+    scale=e_noise**0.5, # Note its SD not variance
+    size=N
+    )   # shape: (N,)
+
+    y = x @ beta_true + eps
+
+    simu_data =  np.hstack((y[:, None], x))
     # Create lists to collect the information
     beta_subsample = []
     second_derivative_subsample =[]
@@ -197,19 +204,18 @@ def subbag(file_name, k_N, m_N, f, N, p = 200, e_noise = 1):
     V_subsample = []
     
     for i in range(0,m_N):
+        subsample = simu_data[random.sample(range(1,len(simu_data)), k = k_N)]
         # the result from the above function
-        result = subsample_estimate(file_name = file_name, subsize = k_N, f=f, p = p)
+        result = subsample_estimate(subsample = subsample, f = f, beta_true = beta_true)
         beta_subsample += [result[0]]
         second_derivative_subsample += [result[1]]
         Sigma_hat_variance_subsample += [result[2]]
         V_subsample += [result[3]]
-    # Delete the simu data file to save storage
-    os.remove(file_name)
     return beta_subsample, second_derivative_subsample, Sigma_hat_variance_subsample, V_subsample
 
 
 
-# In[ ]:
+# In[8]:
 
 
 # Define the function that selects the best lambda
@@ -218,7 +224,7 @@ def SBIC(k_N, m_N, result, initial_value, lamda_constant = 1, interval = 0.00001
     for log_scale in range(0, int(-np.log10(interval))):
         lamda = lamda_constant * 10 ** (-log_scale)
         alpha = (k_N * m_N)/N
-        estimate = minimize(LSA, initial_value, method = "Powell", args = (result[0], result[1], lamda)).x
+        estimate = minimize(LSA, initial_value, method = 'Powell', args = (result[0], result[1], lamda)).x
         df = sum(abs(estimate) > 10e-16)
         if scale == True:
             BIC = k_N * LSA(estimate, result[0], result[1], lamda = lamda) + df * np.log(N)
@@ -231,7 +237,7 @@ def SBIC(k_N, m_N, result, initial_value, lamda_constant = 1, interval = 0.00001
     return BIC_min, lamda_min, estimate_optimal
 
 
-# In[ ]:
+# In[9]:
 
 
 # # Linear Regression
@@ -263,14 +269,20 @@ def SBIC(k_N, m_N, result, initial_value, lamda_constant = 1, interval = 0.00001
 # In[ ]:
 
 
-def sim_saver(k_N, m_N, N, p = 200):
+def sim_saver(k_N, m_N, N, e_noise = 1, p = 200): # e_noise is the variance of error term in linear regression
     alpha=(k_N * m_N)/N
     beta_true = np.concatenate([
-            np.r_[np.linspace(-1, -0.25, 6), np.linspace(0.25, 1, 6)],
+            np.r_[np.linspace(-1, -0.5, 6), np.linspace(0.5, 1, 6)],
             np.zeros(p - 12)])
+    # Covariance matrix
+    rho = 0.5
+    idx = np.arange(p)
+    Sigma = rho ** np.abs(idx[:, None] - idx[None, :])
+    SNR = beta_true.T@Sigma@beta_true/e_noise
     # prepare writing for subsample results
     # If the summary file does not exist, create a new one
-    file_name = '../result/N=' + str(N) + '_k_N='+str(k_N)+'_'+'m_N='+str(m_N)+'_'+'p='+str(p)+'_.csv'
+    file_name = '../result/N=' + str(N) + '_k_N='+str(k_N)+'_'+'m_N='+str(m_N)+'_'+'p='+str(p)+'_SNR=' +\
+                str(SNR)+            '_.csv'
     if (not (os.path.exists(file_name))):
         with open(file_name, mode='w',newline='') as f:
             f_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -311,19 +323,19 @@ def sim_saver(k_N, m_N, N, p = 200):
             
             start_time = time.time()
             # obtain the collection from subbag files
-            result = subbag('sim data_N=' + str(N) + '_' + str(rep_ind_current+i) + '_p=' + str(p) + '.csv',
-                            k_N, m_N, mse, N, p)
+            result = subbag(#'sim data_N=' + str(N) + '_' + str(rep_ind_current+i) + '_p=' + str(p) + '.csv',
+                            k_N, m_N, mse, N, beta_true, e_noise)
             end_time = time.time()
             
             # Simple average of subbagging estimates
             estimate = np.mean(result[0], axis = 0)
 
-            start_time1 = time.time()
-            # LSA minmizer; we set lambda small to avoid potential bias for now
-            # The optimizer method Powerll can give exactly value of 0 when intial value is true beta
-            # For time comparsion to the tuning parameter of lambda
-            estimate_lasso = minimize(LSA, beta_true, method='Powell',args=(result[0],result[1],0.00001)).x
-            end_time1 = time.time()
+            # start_time1 = time.time()
+            # # LSA minmizer; we set lambda small to avoid potential bias for now
+            # # The optimizer method Powerll can give exactly value of 0 when intial value is true beta
+            # # For time comparsion to the tuning parameter of lambda
+            # estimate_lasso = minimize(LSA, beta_true, method='Powell',args=(result[0],result[1],0.00001)).x
+            # end_time1 = time.time()
 
             # Lasso uses subbagging average as initial value
             start_time2 = time.time()
@@ -348,7 +360,7 @@ def sim_saver(k_N, m_N, N, p = 200):
                               CI1_subsample.astype(int).tolist() +
                               ([BIC_min_true]) +
                               ([lamda_min_true]) +
-                              [end_time1 - start_time1 + end_time - start_time] +
+                              #[end_time1 - start_time1 + end_time - start_time] +
                               [end_time2 - start_time2 + end_time - start_time] 
                              )
 
@@ -356,39 +368,54 @@ def sim_saver(k_N, m_N, N, p = 200):
 
 
 
+# In[38]:
+
+
+# Signal-noise-ratio
+p=12
+beta_true = np.concatenate([
+        np.r_[np.linspace(-1, -0.5, 6), np.linspace(0.5, 1, 6)],
+        np.zeros(p - 12)])
+rho = 0.5
+idx = np.arange(p)
+Sigma = rho ** np.abs(idx[:, None] - idx[None, :])
+beta_true.T@Sigma@beta_true
+
+# For ratio = 2
+beta_true.T@Sigma@beta_true/2
+
+# For ratio = 0.5
+beta_true.T@Sigma@beta_true/0.5
+
+
 # In[ ]:
 
 
 # Linear regression
-# N = 50000
-# alpha = 1
-# sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p =15)
+N = 50000
+alpha = 1
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = 1, p =15)
 
 N = 500000
-alpha = 0.2
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
-
-
-
-
 alpha = 0.5
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5)
+#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
 
 
 alpha = 1
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5)
+#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
-alpha = 2
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+# alpha = 2
+# sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
+# sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
@@ -398,30 +425,25 @@ sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 N = 1000000
-alpha = 0.2
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
-
-
-
-
 alpha = 0.5
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5)
+#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
 
 
 alpha = 1
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5)
+#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
-alpha = 2
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+# alpha = 2
+# sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
+# sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
