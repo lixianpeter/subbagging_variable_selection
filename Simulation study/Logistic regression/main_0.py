@@ -21,6 +21,7 @@ import time
 import random 
 import pandas as pd
 import multiprocessing
+from sklearn.linear_model import LogisticRegression
 
 
 # In[165]:
@@ -121,21 +122,29 @@ def logistic_second_derivative(beta,y,x):
 
 # This function is for a subsample's estimation
 
-def subsample_estimate(file_name,subsize,f,p = 200): # subsize is k_N; f is the loss
+
+def subsample_estimate(subsample, f, beta_true = None): #  f is the loss; p is the dimension
 
     # extract one subsample
-    simu_data = pd.read_csv(file_name, header = 0).to_numpy()
-    subsample = simu_data[random.sample(range(1,len(simu_data)), k = subsize)]
+    #simu_data = pd.read_csv(file_name, header = 0).to_numpy()
     y_subsample = subsample[:,0]
     x_subsample = subsample[:,1:]
-    beta_true = np.concatenate([
-        # setting boundaries to avoid true beta close to 0. Curret set is 0.25
-            np.r_[np.linspace(-1, -0.25, 6), np.linspace(0.25, 1, 6)],
-            np.zeros(p - 12)])
+    p = x_subsample.shape[1]
+    if (beta_true.all() == None):
+        beta_true = np.zeros(p)
     k_N = len(y_subsample)
+
+
+    clf = LogisticRegression(
+                            penalty="none",
+                            solver="lbfgs",
+                            fit_intercept=False,
+                            max_iter=5000,
+                            tol=1e-10
+                            )
+    clf.fit(x_subsample, y_subsample)
     # obtain subsample estimates
-    beta_subsample = minimize(f, beta_true, method = 'BFGS',    
-                            args = (y_subsample,x_subsample)).x
+    beta_subsample = clf.coef_.ravel()
 
     #if(f == mse):
     # obtain captial Sigma for linear regession
@@ -165,7 +174,7 @@ def subsample_estimate(file_name,subsize,f,p = 200): # subsize is k_N; f is the 
     # r = (p - y_subsample)                      
     # G =  x_subsample * r[:, None]               # (m, p), rows are g_i^T  
     
-    # We need to use the correct first derviative for each observation not the average derivative
+    # We need to use the correct first derivative for each observation, not the average derivative
     Sigma_hat_variance_subsample = logistic_first_derivative_per_obs(beta_subsample, y_subsample, x_subsample).T @\
                             logistic_first_derivative_per_obs(beta_subsample, y_subsample, x_subsample)/k_N
     
@@ -201,33 +210,26 @@ def LSA(beta,beta_subsample,second_derivative_subsample,lamda=0):
 
 # This function collect the information from each subsample in a list
 
-def subbag(file_name, k_N, m_N, f, N, p = 200):
-    # First generate full sample
-    beta_true = np.concatenate([
-        # setting boundaries to avoid true beta close to 0. Curret set is 0.25
-            np.r_[np.linspace(-1, -0.25, 6), np.linspace(0.25, 1, 6)],
-            np.zeros(p - 12)])
-    with open(file_name, mode='w',newline='') as file:
-        f_writer = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        header = ["y"] + [f"x{i}" for i in range(1, p + 1)]
-        f_writer.writerow(header)
-        
-        # generate the Toeplitz covariance matrix
-        rho = 0.5
-        idx = np.arange(p)
-        Sigma = rho ** np.abs(idx[:, None] - idx[None, :])
-        for n in range(0,N):
-            x = np.random.multivariate_normal(
-                mean=np.zeros(p),
-                cov=Sigma
-            )
-            # logistic model: P(y=1|x) = sigmoid(x @ beta)
-            z = x @ beta_true
-            prob = logistic(z)
-            y = np.random.binomial(1, prob, 1)  # shape (1,)
-            f_writer.writerow(y.tolist()+x.tolist())
-    file.close()
+def subbag(k_N, m_N, f, N, beta_true):
+    p = beta_true.shape[0]
+    # generate the Toeplitz covariance matrix
+    rho = 0.5
+    idx = np.arange(p)
+    Sigma = rho ** np.abs(idx[:, None] - idx[None, :])
 
+    # Generate correlated covariates
+    x = np.random.multivariate_normal(
+    mean=np.zeros(p),
+    cov=Sigma,
+    size=N
+    )   # shape: (N, p)
+
+    # logistic model: P(y=1|x) = sigmoid(x @ beta)
+    z = x @ beta_true
+    prob = logistic(z)
+    y = np.random.binomial(1, prob)  # shape (1,)
+
+    simu_data =  np.hstack((y[:, None], x))
     # create lists to collect the information
     beta_subsample = []
     second_derivative_subsample =[]
@@ -236,16 +238,13 @@ def subbag(file_name, k_N, m_N, f, N, p = 200):
     V_subsample = []
     #V_true = []
     for i in range(0,m_N):
+        subsample = simu_data[random.sample(range(1,len(simu_data)), k = k_N)]
         # the result from the above function
-        result = subsample_estimate(file_name = file_name, subsize = k_N, f=f, p = p)
+        result = subsample_estimate(subsample = subsample, f = f, beta_true = beta_true)
         beta_subsample += [result[0]]
         second_derivative_subsample += [result[1]]
         Sigma_hat_variance_subsample += [result[2]]
-        #Sigma_hat_variance_true += [result[3]]
         V_subsample += [result[3]]
-        #V_true += [result[5]]
-    # Delete the file
-    os.remove(file_name)
     return beta_subsample, second_derivative_subsample, Sigma_hat_variance_subsample, V_subsample
 
 
@@ -254,7 +253,7 @@ def subbag(file_name, k_N, m_N, f, N, p = 200):
 
 
 # define the function that selects the best lambda
-def SBIC(k_N, m_N, result, initial_value, lamda_constant = 5, interval = 0.0000001, scale = True):
+def SBIC(k_N, m_N, result, initial_value, lamda_constant = 1, interval = 0.00000001, scale = True):
     BIC_min = float('inf')
     # beta_true = np.array([3,1.5,0,0,2,0,0,0])
     # beta_subbagging_average = np.mean(result[0], axis = 0)
@@ -313,12 +312,12 @@ def SBIC(k_N, m_N, result, initial_value, lamda_constant = 5, interval = 0.00000
 def sim_saver(k_N, m_N, N, p = 200):
     alpha=(k_N * m_N)/N
     beta_true = np.concatenate([
-            np.r_[np.linspace(-1, -0.25, 6), np.linspace(0.25, 1, 6)],
+            np.r_[np.linspace(-1, -0.5, 6), np.linspace(0.5, 1, 6)],
             np.zeros(p - 12)])
     # prepare writing for subsample results
     # SE_fullsample=np.sqrt((1+1/alpha)*np.linalg.inv(second_derivative(mse,beta,y,x)[[0,1,4],:][:,[0,1,4]])[[0,1,2],[0,1,2]])
     # If summary file not exist, create a new one
-    file_name = '../result/N=' + str(N) + '_k_N='+str(k_N)+'_'+'m_N='+str(m_N)+'_'+'.csv'
+    file_name = '../result/N=' + str(N) + '_k_N='+str(k_N)+'_'+'m_N='+str(m_N)+'_'+'p='+str(p)+ '_.csv'
     if (not (os.path.exists(file_name))):
         with open(file_name, mode='w',newline='') as f:
             f_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -359,19 +358,18 @@ def sim_saver(k_N, m_N, N, p = 200):
             
             start_time = time.time()
             # obtain the collection from subbag files
-            result = subbag('sim data_N=' + str(N) + '_' + str(rep_ind_current+i) + '_p=' + str(p) + '.csv',
-                            k_N, m_N, logistic_likelihood, N, p)
+            result = subbag(k_N, m_N, logistic_likelihood, N, beta_true)
             end_time = time.time()
             
             # Simple average of subbagging estimates
             estimate = np.mean(result[0], axis = 0)
 
-            start_time1 = time.time()
+            #start_time1 = time.time()
             # LSA minmizer; we set lambda small to avoid potential bias for now
             # The optimizer method Powerll can give exactly value of 0 when intial value is true beta
             # For time comparsion to the tuning parameter of lambda
-            estimate_lasso = minimize(LSA, beta_true, method='Powell',args=(result[0],result[1],0.00001)).x
-            end_time1 = time.time()
+            #estimate_lasso = minimize(LSA, beta_true, method='Powell',args=(result[0],result[1],0.00001)).x
+            #end_time1 = time.time()
 
             # Lasso uses subbagging average as initial value
             start_time2 = time.time()
@@ -432,7 +430,7 @@ def sim_saver(k_N, m_N, N, p = 200):
                               # ([lamda_min]) +
                               ([BIC_min_true]) +
                               ([lamda_min_true]) +
-                              [end_time1 - start_time1 + end_time - start_time] +
+                              #[end_time1 - start_time1 + end_time - start_time] +
                               [end_time2 - start_time2 + end_time - start_time] 
                              )
 
@@ -449,16 +447,9 @@ alpha = 1
 sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p =15)
 
 N = 50000
-alpha = 0.2
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
-
-
-
-
 alpha = 0.5
 sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
@@ -466,13 +457,13 @@ sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 alpha = 1
 sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
-alpha = 2
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+# alpha = 2
+# sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
+# sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
@@ -482,16 +473,9 @@ sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 N = 100000
-alpha = 0.2
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
-
-
-
-
 alpha = 0.5
 sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
@@ -499,13 +483,13 @@ sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 alpha = 1
 sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
 alpha = 2
 sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
@@ -734,6 +718,35 @@ sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
+
+# In[ ]:
+
+
+# In[121]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
 
 
 
