@@ -120,70 +120,45 @@ def logistic_second_derivative(beta,y,x):
 # In[167]:
 
 
-# This function is for a subsample's estimation
+# # This function is for a subsample's estimation
 
 
-def subsample_estimate(subsample, f, beta_true = None): #  f is the loss; p is the dimension
+# def subsample_estimate(subsample, f, beta_true = None): #  f is the loss; p is the dimension
 
-    # extract one subsample
-    #simu_data = pd.read_csv(file_name, header = 0).to_numpy()
-    y_subsample = subsample[:,0]
-    x_subsample = subsample[:,1:]
-    p = x_subsample.shape[1]
-    if (beta_true.all() == None):
-        beta_true = np.zeros(p)
-    k_N = len(y_subsample)
+#     # extract one subsample
+#     #simu_data = pd.read_csv(file_name, header = 0).to_numpy()
+#     y_subsample = subsample[:,0]
+#     x_subsample = subsample[:,1:]
+#     p = x_subsample.shape[1]
+#     if (beta_true.all() == None):
+#         beta_true = np.zeros(p)
+#     k_N = len(y_subsample)
 
 
-    clf = LogisticRegression(
-                            penalty="none",
-                            solver="lbfgs",
-                            fit_intercept=False,
-                            max_iter=5000,
-                            tol=1e-10
-                            )
-    clf.fit(x_subsample, y_subsample)
-    # obtain subsample estimates
-    beta_subsample = clf.coef_.ravel()
+#     clf = LogisticRegression(
+#                             penalty="none",
+#                             solver="lbfgs",
+#                             fit_intercept=False,
+#                             max_iter=5000,
+#                             tol=1e-10
+#                             )
+#     clf.fit(x_subsample, y_subsample)
+#     # obtain subsample estimates
+#     beta_subsample = clf.coef_.ravel()
 
-    #if(f == mse):
-    # obtain captial Sigma for linear regession
-    # second_derivative_subsample = mse_second_derivative(beta_subsample, y_subsample, x_subsample)
+#     # obtain captial Sigma for logistic regession
+#     second_derivative_subsample = logistic_second_derivative(beta_subsample, y_subsample, x_subsample)
 
-    # obtain captial Sigma for logistic regession
-    second_derivative_subsample = logistic_second_derivative(beta_subsample, y_subsample, x_subsample)
-
-    # obtain the middle matrix in the sandwich covariance matrix (using true beta or estimate)
-    # first_derivative_subsample = mse_first_derivative(beta_subsample, y_subsample, x_subsample)
-    # first_derivative_true =  mse_first_derivative(beta_true, y_subsample, x_subsample) 
-
-    # Linear regression
-    # Sigma_hat_variance_subsample = np.sum( (y_subsample - x_subsample @ beta_subsample)**2 )  / (len(y_subsample))
-    # Sigma_hat_variance_true = np.sum( (y_subsample - x_subsample @ beta_true)**2 )  / (len(y_subsample))
-    # # new subsample variance
-    # V_Sigma_V = Sigma_hat_variance_subsample * np.linalg.inv(x_subsample.T @ x_subsample / len(y_subsample))
-
-    # Logistic regression
-    # with subsample estimate
-    # p = logistic(x_subsample@beta_subsample)          
-    # r = (p - y_subsample)                      
-    # G =  x_subsample * r[:, None]               # (m, p), rows are g_i^T                
-    # Sigma_hat_variance_subsample = G.T @ G / len(y_subsample) # (p, p) = Σ g_i g_i^T
-    # with true beta
-    # p = logistic(x_subsample@beta_true)          
-    # r = (p - y_subsample)                      
-    # G =  x_subsample * r[:, None]               # (m, p), rows are g_i^T  
+#     # We need to use the correct first derivative for each observation, not the average derivative
+#     Sigma_hat_variance_subsample = logistic_first_derivative_per_obs(beta_subsample, y_subsample, x_subsample).T @\
+#                             logistic_first_derivative_per_obs(beta_subsample, y_subsample, x_subsample)/k_N
     
-    # We need to use the correct first derivative for each observation, not the average derivative
-    Sigma_hat_variance_subsample = logistic_first_derivative_per_obs(beta_subsample, y_subsample, x_subsample).T @\
-                            logistic_first_derivative_per_obs(beta_subsample, y_subsample, x_subsample)/k_N
-    
-    V_subsample = second_derivative_subsample
-    #V_true = logistic_second_derivative(beta_true, y_subsample, x_subsample)
+#     V_subsample = second_derivative_subsample
+#     #V_true = logistic_second_derivative(beta_true, y_subsample, x_subsample)
     
     
 
-    return beta_subsample, second_derivative_subsample, Sigma_hat_variance_subsample, V_subsample
+#     return beta_subsample, second_derivative_subsample, Sigma_hat_variance_subsample, V_subsample
 
 
 
@@ -231,21 +206,43 @@ def subbag(k_N, m_N, f, N, beta_true):
 
     simu_data =  np.hstack((y[:, None], x))
     # create lists to collect the information
-    beta_subsample = []
-    second_derivative_subsample =[]
-    Sigma_hat_variance_subsample = []
+    beta_subsample_list = []
+    second_derivative_subsample_list =[]
+    Sigma_hat_variance_subsample_list = []
     #Sigma_hat_variance_true = []
-    V_subsample = []
+    V_subsample_list = []
     #V_true = []
     for i in range(0,m_N):
         subsample = simu_data[random.sample(range(1,len(simu_data)), k = k_N)]
         # the result from the above function
-        result = subsample_estimate(subsample = subsample, f = f, beta_true = beta_true)
-        beta_subsample += [result[0]]
-        second_derivative_subsample += [result[1]]
-        Sigma_hat_variance_subsample += [result[2]]
-        V_subsample += [result[3]]
-    return beta_subsample, second_derivative_subsample, Sigma_hat_variance_subsample, V_subsample
+        #result = subsample_estimate(subsample = subsample, f = f, beta_true = beta_true)
+        y_subsample = subsample[:,0]
+        x_subsample = subsample[:,1:]
+        clf = LogisticRegression(
+                                penalty="none",
+                                solver="lbfgs",
+                                fit_intercept=False,
+                                max_iter=5000,
+                                tol=1e-10
+                                )
+        clf.fit(x_subsample, y_subsample)
+        # obtain subsample estimates
+        beta_subsample = clf.coef_.ravel()
+    
+        # obtain captial Sigma for logistic regession
+        second_derivative_subsample = logistic_second_derivative(beta_subsample, y_subsample, x_subsample)
+    
+        # We need to use the correct first derivative for each observation, not the average derivative
+        Sigma_hat_variance_subsample = logistic_first_derivative_per_obs(beta_subsample, y_subsample, x_subsample).T @\
+                                logistic_first_derivative_per_obs(beta_subsample, y_subsample, x_subsample)/k_N
+
+        
+        beta_subsample_list += [beta_subsample]
+        second_derivative_subsample_list += [second_derivative_subsample]
+        Sigma_hat_variance_subsample_list += [Sigma_hat_variance_subsample]
+        V_subsample_list += [second_derivative_subsample]
+        
+    return beta_subsample_list, second_derivative_subsample_list, Sigma_hat_variance_subsample_list, V_subsample_list
 
 
 
@@ -448,16 +445,16 @@ sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p 
 
 N = 50000
 alpha = 0.5
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+#sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 100)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 100)
 
 
 
 
 
 alpha = 1
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+#sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 100)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
 
@@ -474,21 +471,21 @@ sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
 
 N = 100000
 alpha = 0.5
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+#sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 100)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 100)
 
 
 
 
 
 alpha = 1
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+#sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 100)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 100)
 
 
 
-alpha = 2
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
+# alpha = 2
+# sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
 #sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
 
 
