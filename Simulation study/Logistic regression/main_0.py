@@ -339,8 +339,8 @@ def sim_saver(k_N, m_N, N, p = 200):
             header += [
                 #"BIC_min", "lamda_min",
                 "BIC_min_true", "lamda_min_true",
-                "time1", "time2",
-                "memory"
+                "time1" #"time2",
+                #"memory"
             ]
             f_writer.writerow(header)
             
@@ -356,10 +356,10 @@ def sim_saver(k_N, m_N, N, p = 200):
             start_time = time.time()
             # obtain the collection from subbag files
             result = subbag(k_N, m_N, logistic_likelihood, N, beta_true)
-            end_time = time.time()
+            
             
             # Simple average of subbagging estimates
-            estimate = np.mean(result[0], axis = 0)
+            #estimate = np.mean(result[0], axis = 0)
 
             #start_time1 = time.time()
             # LSA minmizer; we set lambda small to avoid potential bias for now
@@ -369,12 +369,12 @@ def sim_saver(k_N, m_N, N, p = 200):
             #end_time1 = time.time()
 
             # Lasso uses subbagging average as initial value
-            start_time2 = time.time()
+            #start_time2 = time.time()
             lasso_result = SBIC(k_N, m_N, result, initial_value = beta_true)
             estimate_lasso_true = lasso_result[2]
             BIC_min_true = lasso_result[0]
             lamda_min_true = lasso_result[1]
-            end_time2 = time.time()
+            end_time = time.time()
 
             # First kind of SE calculation; i.e., based on the subbagging
             #SE1_subsample = np.sqrt(k_N * (1 + 1/alpha) * ((np.array(result[0]) - estimate).T@(np.array(result[0]) - estimate))[[0,1,4],[0,1,4]]/m_N/N)
@@ -428,7 +428,7 @@ def sim_saver(k_N, m_N, N, p = 200):
                               ([BIC_min_true]) +
                               ([lamda_min_true]) +
                               #[end_time1 - start_time1 + end_time - start_time] +
-                              [end_time2 - start_time2 + end_time - start_time] 
+                              [ end_time - start_time] 
                              )
 
 
@@ -439,88 +439,49 @@ def sim_saver(k_N, m_N, N, p = 200):
 
 
 # Logistics regression
+# For test
 N = 50000
 alpha = 1
 sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p =15)
 
-N = 50000
+
+
+N = 500000
 alpha = 0.5
-#sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 100)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 100)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 30)
+
+
+alpha = 1
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 30)
+
+
+
+alpha = 2
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 30)
+
+
+
+
+N = 1000000
+alpha = 0.5
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 30)
 
 
 
 
 
 alpha = 1
-#sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 100)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 30)
 
 
-
-# alpha = 2
-# sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-# sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
-
-
-
-
-
-# In[ ]:
-
-
-N = 100000
-alpha = 0.5
-#sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 100)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 100)
-
-
-
-
-
-alpha = 1
-#sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 100)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 100)
-
-
-
-# alpha = 2
-# sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
-
-
-
-
-
-# In[ ]:
-
-
-# Logistic regression
-# N = 500000
-# alpha = 0.2
-# sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-# sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
-
-
-
-
-# alpha = 0.5
-# sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-# sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
-
-
-
-
-
-# alpha = 1
-# sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-# sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
-
-
-
-# alpha = 2
-# sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-# sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+alpha = 2
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 30)
 
 
 
@@ -530,95 +491,6 @@ sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p 
 
 
 
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-# # Logistic regression
-
-# In[ ]:
-
-
-# def logistic_first_derivative(beta,y,x):
-#     Y=y
-#     X=x
-#     p=logistic(X@beta)
-#     return -(Y@X-p@X)
-# def logistic_second_derivative(beta,y,x):
-#     Y=y
-#     X=x
-#     p=logistic(X@beta)
-#     return X.transpose()*(p*(1-p))@X
-
-
-# In[ ]:
-
-
-# N=1000000
-# beta = np.array([3,1.5,0,0,2,0,0,0])
-# with open('sim logistic data.csv', mode='w',newline='') as f:
-#     f_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-#     f_writer.writerow(["y","x1","x2","x3","x4","x5","x6","x7","x8"])
-#     for n in range(0,N):
-#         #np.random.seed(n)
-#         x = np.random.normal(0,1,8)
-#         p = logistic(x@beta)
-#         y = np.random.binomial(1, p, size=None)
-#         f_writer.writerow([y]+x.tolist())
-# f.close()
-
-
-# In[ ]:
-
-
-# simu_data=np.genfromtxt('sim logistic data.csv', delimiter=',')
-# y=simu_data[1:,0]
-# x=simu_data[1:,1:]
-# beta_OLS=minimize(logistic_likelihood, beta, method="Powell",args=(y,x)).x
-# beta_adaptive=minimize(adaptive, [3,1.5,0,0,2,0,0,0], method="Powell",args=(logistic_likelihood,y,x,beta_OLS,0.001)).x
-
-
-# In[ ]:
-
-
-# beta_OLS
-
-
-# In[ ]:
-
-
-# def sim_saver(k_N,m_N):
-#     alpha=(k_N*m_N)/N
-#     SE_fullsample=np.sqrt((1+1/alpha)*np.linalg.inv(logistic_second_derivative(beta,y,x)[[0,1,4],:][:,[0,1,4]])[[0,1,2],[0,1,2]])
-#     with open('k_N='+str(k_N)+'_'+'m_N='+str(m_N)+'_'+'.csv', mode='w',newline='') as f:
-#         f_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-#         f_writer.writerow(['beta_1','beta_2','beta_3','beta_4','beta_5','beta_6','beta_7','beta_8',\
-#                            'lasso beta_1','lasso beta_2','lasso beta_3','lasso beta_4',\
-#                            'lasso beta_5','lasso beta_6','lasso beta_7','lasso beta_8',\
-#                           'subsample SE beta_1','subsample SE beta_2','subsample SE beta_5','full sample SE beta_1',\
-#                           'full sample SE beta_2','full sample SE beta_5'])
-#         for i in range(0,1000):
-#             result=subbag('sim logistic data.csv',k_N,m_N,logistic_likelihood)
-#             estimate=minimize(LSA, beta+1, method='Powell',args=(result[0],result[1],0)).x
-#             estimate_lasso=minimize(LSA, beta, method='Powell',args=(result[0],result[1],0.001)).x
-#             SE_subsample=np.sqrt((1+1/alpha)*np.linalg.inv(np.mean(result[1],axis=0)*N)[[0,1,4],[0,1,4]])
-#             f_writer.writerow(estimate.tolist()+estimate_lasso.tolist()+SE_subsample.tolist()+SE_fullsample.tolist())
-
-
-# In[ ]:
 
 
 
@@ -652,71 +524,6 @@ sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p 
 
 
 
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# # BIC
-
-# In[812]:
-
-
-
-
-
-# In[14]:
-
-
-# print(SBIC('sim linear data.csv',1000,10,mse,lamda_max=1,interval=0.1,scale=False))
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
 
 
 # In[121]:
