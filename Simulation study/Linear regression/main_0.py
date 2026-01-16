@@ -198,20 +198,36 @@ def subbag(k_N, m_N, f, N, beta_true, e_noise = 1):
 
     simu_data =  np.hstack((y[:, None], x))
     # Create lists to collect the information
-    beta_subsample = []
-    second_derivative_subsample =[]
-    Sigma_hat_variance_subsample = []
-    V_subsample = []
+    beta_subsample_list = []
+    second_derivative_subsample_list =[]
+    Sigma_hat_variance_subsample_list = []
+    V_subsample_list = []
     
     for i in range(0,m_N):
         subsample = simu_data[random.sample(range(1,len(simu_data)), k = k_N)]
         # the result from the above function
-        result = subsample_estimate(subsample = subsample, f = f, beta_true = beta_true)
-        beta_subsample += [result[0]]
-        second_derivative_subsample += [result[1]]
-        Sigma_hat_variance_subsample += [result[2]]
-        V_subsample += [result[3]]
-    return beta_subsample, second_derivative_subsample, Sigma_hat_variance_subsample, V_subsample
+        #result = subsample_estimate(subsample = subsample, f = f, beta_true = beta_true)
+        y_subsample = subsample[:,0]
+        x_subsample = subsample[:,1:]
+        
+        # Obtain subsample estimates
+        beta_subsample = np.linalg.inv(x_subsample.T@x_subsample)@x_subsample.T@y_subsample
+        #minimize(f, beta_true, method = 'BFGS',    
+                                #args = (y_subsample,x_subsample)).x
+            # (x.tx)^(-1)xy
+        # Obtain capital Sigma for linear regression
+        second_derivative_subsample = mse_second_derivative(beta_subsample, y_subsample, x_subsample)
+    
+        # The following code is to prepare for the SE calculation
+        # We need to use the correct first derivative for each observation, not the average derivative
+        Sigma_hat_variance_subsample = mse_first_derivative_per_obs(beta_subsample, y_subsample, x_subsample).T @\
+                                        mse_first_derivative_per_obs(beta_subsample, y_subsample, x_subsample)/k_N 
+        
+        beta_subsample_list += [beta_subsample]
+        second_derivative_subsample_list += [second_derivative_subsample]
+        Sigma_hat_variance_subsample_list += [Sigma_hat_variance_subsample]
+        V_subsample_list += [second_derivative_subsample]
+    return beta_subsample_list, second_derivative_subsample_list, Sigma_hat_variance_subsample_list, V_subsample_list
 
 
 
@@ -219,7 +235,7 @@ def subbag(k_N, m_N, f, N, beta_true, e_noise = 1):
 
 
 # Define the function that selects the best lambda
-def SBIC(k_N, m_N, result, initial_value, lamda_constant = 1, interval = 0.00001, scale = True):
+def SBIC(k_N, m_N, result, initial_value, lamda_constant = 1, interval = 0.0000001, scale = True):
     BIC_min = float('inf')
     for log_scale in range(0, int(-np.log10(interval))):
         lamda = lamda_constant * 10 ** (-log_scale)
@@ -274,15 +290,15 @@ def sim_saver(k_N, m_N, N, e_noise = 1, p = 200): # e_noise is the variance of e
     beta_true = np.concatenate([
             np.r_[np.linspace(-1, -0.5, 6), np.linspace(0.5, 1, 6)],
             np.zeros(p - 12)])
-    # Covariance matrix
-    rho = 0.5
-    idx = np.arange(p)
-    Sigma = rho ** np.abs(idx[:, None] - idx[None, :])
-    SNR = beta_true.T@Sigma@beta_true/e_noise
+    # # Covariance matrix
+    # rho = 0.5
+    # idx = np.arange(p)
+    # Sigma = rho ** np.abs(idx[:, None] - idx[None, :])
+    # SNR = beta_true.T@Sigma@beta_true/e_noise
     # prepare writing for subsample results
     # If the summary file does not exist, create a new one
-    file_name = '../result/N=' + str(N) + '_k_N='+str(k_N)+'_'+'m_N='+str(m_N)+'_'+'p='+str(p)+'_SNR=' +\
-                str(SNR)+            '_.csv'
+    file_name = '../result/N=' + str(N) + '_k_N='+str(k_N)+'_'+'m_N='+str(m_N)+'_'+'p='+str(p)+'_e_noise=' +\
+                str(e_noise)+            '_.csv'
     if (not (os.path.exists(file_name))):
         with open(file_name, mode='w',newline='') as f:
             f_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
@@ -392,30 +408,39 @@ beta_true.T@Sigma@beta_true/0.5
 
 
 # Linear regression
+# For test only
 N = 50000
 alpha = 1
 sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = 1, p =15)
 
 N = 500000
 alpha = 0.5
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2)
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5)
-#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
 
 
 
 
 
 alpha = 1
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2)
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5)
-#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
 
 
 
-# alpha = 2
-# sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-# sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+
+alpha = 2
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
 
 
 
@@ -426,24 +451,43 @@ sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_
 
 N = 1000000
 alpha = 0.5
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2)
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5)
-#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
 
 
 
 
 
 alpha = 1
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2)
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5)
-#sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
 
 
 
-# alpha = 2
-# sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N)
-# sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N)
+alpha = 2
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
 
 
 
