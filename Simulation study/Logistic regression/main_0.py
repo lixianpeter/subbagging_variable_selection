@@ -2,7 +2,7 @@ rep_ind_current=1
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[164]:
+# In[1]:
 
 
 #rep_ind_current = 1
@@ -24,7 +24,7 @@ import multiprocessing
 from sklearn.linear_model import LogisticRegression
 
 
-# In[165]:
+# In[2]:
 
 
 # define some loss functions
@@ -67,7 +67,7 @@ def second_derivative(f,beta,*args):
 
 
 
-# In[166]:
+# In[3]:
 
 
 # For linear regression
@@ -117,7 +117,7 @@ def logistic_second_derivative(beta,y,x):
     return X.transpose()*(p*(1-p))@X/len(y)
 
 
-# In[167]:
+# In[4]:
 
 
 # # This function is for a subsample's estimation
@@ -164,7 +164,7 @@ def logistic_second_derivative(beta,y,x):
 
 
 
-# In[168]:
+# In[5]:
 
 
 # define the least square approximation
@@ -180,7 +180,7 @@ def LSA(beta,beta_subsample,second_derivative_subsample,lamda=0):
     return approx + lamda*sum(abs(beta)/np.abs(weights)**2)
 
 
-# In[169]:
+# In[6]:
 
 
 # This function collect the information from each subsample in a list
@@ -246,11 +246,11 @@ def subbag(k_N, m_N, f, N, beta_true):
 
 
 
-# In[170]:
+# In[7]:
 
 
 # define the function that selects the best lambda
-def SBIC(k_N, m_N, result, initial_value, lamda_constant = 1, interval = 0.00000001, scale = True):
+def SBIC(k_N, m_N, result, initial_value, lamda_constant = 1, interval = 0.0000001, scale = True):
     BIC_min = float('inf')
     # beta_true = np.array([3,1.5,0,0,2,0,0,0])
     # beta_subbagging_average = np.mean(result[0], axis = 0)
@@ -270,7 +270,7 @@ def SBIC(k_N, m_N, result, initial_value, lamda_constant = 1, interval = 0.00000
     return BIC_min, lamda_min, estimate_optimal
 
 
-# In[171]:
+# In[8]:
 
 
 # # Linear Regression
@@ -303,7 +303,7 @@ def SBIC(k_N, m_N, result, initial_value, lamda_constant = 1, interval = 0.00000
 
 
 
-# In[172]:
+# In[9]:
 
 
 def sim_saver(k_N, m_N, N, p = 200):
@@ -352,6 +352,7 @@ def sim_saver(k_N, m_N, N, p = 200):
         for i in range(0,10):
             
             random.seed(rep_ind_current+i)
+            np.random.seed(rep_ind_current+i)
             
             start_time = time.time()
             # obtain the collection from subbag files
@@ -435,7 +436,7 @@ def sim_saver(k_N, m_N, N, p = 200):
 
 
 
-# In[174]:
+# In[10]:
 
 
 # Logistics regression
@@ -443,48 +444,50 @@ def sim_saver(k_N, m_N, N, p = 200):
 N = 50000
 alpha = 1
 sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p =15)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p =15)
 
 
 
 N = 500000
 alpha = 0.5
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 30)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 200)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 200)
 
 
 alpha = 1
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 30)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 200)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 200)
 
 
 
 alpha = 2
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 30)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 200)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 200)
 
 
 
 
 N = 1000000
 alpha = 0.5
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 30)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 200)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 200)
 
 
 
 
 
 alpha = 1
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 30)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 200)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 200)
 
 
 alpha = 2
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 30)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p = 200)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, p = 200)
 
 
-
+# For replication test 
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, p =15)
 
 
 # In[ ]:
