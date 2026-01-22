@@ -408,33 +408,41 @@ beta_true.T@Sigma@beta_true/0.5
 # In[ ]:
 
 
-# # Linear regression
-# # For test only
+# Linear regression
+# For test only
 N = 50000
 alpha = 1
 sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = 1, p =15)
 sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = 1, p =15)
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = 1, p =15)
+
 
 N = 500000
 alpha = 0.5
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 200)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 200)
 
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 200)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 200)
 
 
 
 
 
 alpha = 1
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 200)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 200)
 
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 200)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 200)
 
+
+
+alpha = 2
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 200)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 200)
+
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 200)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 200)
 
 
 
@@ -445,22 +453,30 @@ sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_
 
 N = 1000000
 alpha = 0.5
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 200)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 200)
 
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 200)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 200)
 
 
 
 
 
 alpha = 1
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
-sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 200)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 200)
 
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 30)
-sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 30)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 200)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 200)
+
+alpha = 2
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 200)
+sim_saver(k_N=int(N**(1/4+1/2)),m_N=(int(alpha * N/(N**(1/4+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 200)
+
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/2, p = 200)
+sim_saver(k_N=int(N**(1/3+1/2)),m_N=(int(alpha * N/(N**(1/3+1/2)))+1), N = N, e_noise = beta_true.T@Sigma@beta_true/0.5, p = 200)
+
 
 
 
