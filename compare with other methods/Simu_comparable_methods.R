@@ -1,5 +1,7 @@
 Simu <- function(a) {
-  
+  # install.packages(c("stabs", ""STOPES""))
+  library(stabs)
+  library(STOPES)
   library(MASS)
   library(glmnet)
   ## Input Parameters
@@ -7,6 +9,23 @@ Simu <- function(a) {
   list <- read.csv("Paralist.csv", stringsAsFactors = FALSE)
   
   para <- list[id, ]
+  
+  ### ---------------------------- --
+  #  For test only -------
+  ### ---------------------------- --
+  # Comment out when not testing
+  # para = list()
+  # para$model = "Linear"
+  # para$p = 20
+  # para$N = 100000
+  # para$delta = 1/4
+  # para$alpha = 1
+  # para$SNR = 0.5
+  # para$LoopStart = 1
+  # para$LoopEnd = 50
+  # loop = 1
+  ### ---------------------------- --
+  
   
   model <- as.character(para$model)
   p <- para$p
@@ -22,15 +41,15 @@ Simu <- function(a) {
   rm(list, para)
   
   if(model == 'Linear'){
-    filename1 <- file.path("result", paste0(model, "_SNR", SNR, "_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
-    filename2 <- file.path("result", paste0(model, "_loglogp_SNR", SNR, "_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
-    filename3 <- file.path("result", paste0(model, "_dflambda_SNR", SNR, "_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
-    filename4 <- file.path("result", paste0(model, "_loglogp_dflambda_SNR", SNR, "_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
+    filename1 <- file.path("result", paste0(model, "_Capanu_estimate_SNR", SNR, "_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
+    filename2 <- file.path("result", paste0(model, "_Capanu_SNR", SNR, "_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
+    filename3 <- file.path("result", paste0(model, "_SS_SNR", SNR, "_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
+    filename4 <- file.path("result", paste0(model, "_MB_SNR", SNR, "_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
   }else{
-    filename1 <- file.path("result", paste0(model, "_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
-    filename2 <- file.path("result", paste0(model, "_loglogp_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
-    filename3 <- file.path("result", paste0(model, "_dflambda_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
-    filename4 <- file.path("result", paste0(model, "_loglogp_dflambda_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
+    filename1 <- file.path("result", paste0(model, "_Capanu_estimate_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
+    filename2 <- file.path("result", paste0(model, "_Capanu_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
+    filename3 <- file.path("result", paste0(model, "_SS_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
+    filename4 <- file.path("result", paste0(model, "_MB_p", p, "_N", sprintf("%.0f", N), "_delta", sprintf("%.2f", delta), "_alpha", alpha, ".csv"))
   }
   beta_true <- c(seq(-1, -0.5, length.out = p0/2), seq(0.5, 1, length.out = p0/2), rep(0, p - p0))
   
@@ -63,236 +82,105 @@ Simu <- function(a) {
       y <- rbinom(n = N, 1, plogis(x %*% beta_true))
     }
     
-    beta_subsample_list <- list()
-    second_derivative_subsample_list <- list()
-    Sigma_hat_variance_subsample_list <- list()
-    V_subsample_list <- list()
-    
-    kn <- floor(N^(1/2+delta))
+    # The following settings used in our method
+    kn <- floor(N^(1/2+delta)) 
     mn <- floor(alpha*N/kn)
     
-    t0 <- Sys.time()  
-    for (i in 1:mn) {
-      
-      subsample_idx <- sample(N, size = kn, replace = FALSE)
-      
-      y_subsample <- y[subsample_idx]
-      x_subsample <- x[subsample_idx,]
-      
-      
-      if (model == "Linear") {
-        
-        # code for Linear model
-        beta_subsample <- solve(t(x_subsample) %*% x_subsample) %*% t(x_subsample) %*% y_subsample
-        second_derivative_subsample <- 2 * t(x_subsample) %*% x_subsample / kn
-        grad <- -2 * x_subsample * matrix(y_subsample - x_subsample %*% beta_subsample, nrow=kn, ncol=p, byrow = FALSE)
-        Sigma_hat_variance_subsample <- t(grad) %*% grad / kn
-        
-      } else {
-        
-        fit <- glm(y_subsample ~ x_subsample -1, family = binomial(link = "logit"))
-        beta_subsample <- as.numeric(coef(fit)) 
-        
-        prob <- plogis(x_subsample %*% beta_subsample) 
-        second_derivative_subsample <- t(x_subsample) %*% diag(as.numeric(prob * (1 - prob))) %*% x_subsample / kn
-        grad <- x_subsample *  matrix(prob - y_subsample, nrow=kn, ncol=p, byrow = FALSE)
-        Sigma_hat_variance_subsample <- t(grad) %*% grad / kn
-        
-      }
-      
-      beta_subsample_list[[i]] <- beta_subsample
-      second_derivative_subsample_list[[i]] <- second_derivative_subsample
-      Sigma_hat_variance_subsample_list[[i]] <- Sigma_hat_variance_subsample
-    }
+   
     
-    beta_average <- Reduce("+", beta_subsample_list) / mn
-    # LSA <- Reduce(
-    #   `+`,
-    #   Map(
-    #     function(beta_i, H_i) {
-    #       diff <- beta_average - beta_i
-    #       as.numeric(t(diff) %*% H_i %*% diff)
-    #     },
-    #     beta_subsample_list,
-    #     second_derivative_subsample_list
-    #   )
-    # ) / m_N
+    ### ---------------------------- --
+    #  Capanu et al. (2023) OPTS -------
+    ### ---------------------------- --
+    # In STOPES::opts():
+    # - m = number of subsamples
+    # - prop_split = subsample fraction
+    # so k_N = N * prop_split
+    k_N <- floor(N / 2)
+    prop_split <- k_N / N
+    # The following is from paper's simulation settings
+    crit <- "aic"
+    cutoff <- 0.75
     
-    # BIC_min = k_N * LSA + df * log(N)
-    
-    alpha0 = (kn * mn)/N 
-    
-    glm_X=NULL
-    glm_Y=NULL
-    for (k in seq_len(mn)) {
-      #Vk_half <- chol(second_derivative_subsample_list[[k]])
-      eig <- eigen(second_derivative_subsample_list[[k]])
-      
-      Vk_half <- eig$vectors %*%
-        diag(sqrt(eig$values)) %*%
-        t(eig$vectors)
-      
-      glm_Y <- rbind(glm_Y, Vk_half%*%beta_subsample_list[[k]])
-      glm_X <-rbind(glm_X, Vk_half)
-    }
-    glm_X=glm_X/sqrt(mn)
-    glm_Y=glm_Y/sqrt(mn)
-    cy = sd(glm_Y)*sqrt(length(glm_Y)-1)/sqrt(length(glm_Y))
-    
-    gridLambda=10^seq(0,log10(log(N)/N*1e-1),length=100)
-    glmnet_fit <- glmnet(glm_X/cy, glm_Y/cy,
-                         family = "gaussian", 
-                         alpha=1, 
-                         standardize= FALSE, 
-                         intercept = FALSE, 
-                         penalty.factor= 1/(abs(beta_average)/cy^2/2/length(glm_Y)),
-                         lambda=gridLambda)
-    
-    beta_hat = predict(glmnet_fit,type="coefficients")[-1, ]
-    
-    BIC_vec <- apply(beta_hat, 2, FUN = function(x) {
-      
-      df <- sum(x != 0)
-      LSA <- 0
-      
-      for (k in seq_len(mn)) {
-        diff <- x - beta_subsample_list[[k]]
-        LSA <- LSA +
-          as.numeric(
-            t(diff) %*%
-              second_derivative_subsample_list[[k]] %*%
-              diff
-          )
-      }
-      LSA <- LSA/mn
-      kn * LSA + df * log(N)
-    })
-    
-    
-    beta_hat_optimal  = beta_hat[,which.min(BIC_vec)]    
-    lambda_min  = glmnet_fit$lambda[which.min(BIC_vec)]
-    BIC_min  = min(BIC_vec)   
-    
-    Sigma_hat <- Reduce("+", Sigma_hat_variance_subsample_list) / mn
-    V_hat <- Reduce("+", second_derivative_subsample_list) / mn
-    
-    SE_hat <- sqrt(diag((1 + 1 / alpha0) / N * solve(V_hat[1:p0, 1:p0]) %*% Sigma_hat[1:p0, 1:p0] %*% solve(V_hat[1:p0, 1:p0])))
-    
-    CI_indicator <- as.numeric((beta_hat_optimal[1:p0] + qnorm(0.975) * SE_hat > beta_true[1:p0]) & (beta_hat_optimal[1:p0] - qnorm(0.975) * SE_hat < beta_true[1:p0]))
-    
+    t0 <- Sys.time() 
+    res_Capanu <- opts(
+      X = x,
+      Y = y,
+      m = mn,
+      crit = crit,
+      prop_split = prop_split,
+      cutoff = cutoff,
+      family = if (model == "Linear") "gaussian" else "binomial"
+    )
     time <- as.numeric(Sys.time() - t0, units = "secs")
-    
-    result <- c(loop, beta_hat_optimal, SE_hat, CI_indicator, BIC_min, lambda_min, time)
-    
+    CI_indicator <- as.numeric((res_Capanu$betahat[1:p0] + qnorm(0.975) * res_Capanu$SE[1:p0] > beta_true[1:p0]) & (res_Capanu$betahat[1:p0] - qnorm(0.975) * res_Capanu$SE[1:p0] < beta_true[1:p0]))
+    result <- c(loop,  res_Capanu$betahat, res_Capanu$SE, CI_indicator, time)
     write.table(t(result), filename1, sep = ",", row.names = FALSE, col.names = FALSE, append = TRUE)
-  
-    
-    BIC_vec_loglogp <- apply(beta_hat, 2, FUN = function(x) {
-      
-      df <- sum(x != 0)
-      LSA <- 0
-      
-      for (k in seq_len(mn)) {
-        diff <- x - beta_subsample_list[[k]]
-        LSA <- LSA +
-          as.numeric(
-            t(diff) %*%
-              second_derivative_subsample_list[[k]] %*%
-              diff
-          )
-      }
-      
-      ## My changes
-      LSA <- LSA/mn
-      
-      ## My changes
-      kn * LSA + df * log(N) * log(log(p))
-    })
-    
-    beta_hat_optimal_loglogp  = beta_hat[,which.min(BIC_vec_loglogp)]    
-    
-    lambda_min_loglogp  = glmnet_fit$lambda[which.min(BIC_vec_loglogp)]
-    
-    BIC_min_loglogp  = min(BIC_vec_loglogp)  
-    
-    CI_indicator_loglogp <- as.numeric((beta_hat_optimal_loglogp[1:p0] + qnorm(0.975) * SE_hat > beta_true[1:p0]) & (beta_hat_optimal_loglogp[1:p0] - qnorm(0.975) * SE_hat < beta_true[1:p0]))
-    
-    result <- c(loop, beta_hat_optimal_loglogp, SE_hat, CI_indicator_loglogp, BIC_min_loglogp, lambda_min_loglogp, time)
-    
+    result <- c(loop,  res_Capanu$Jhat, time)
     write.table(t(result), filename2, sep = ",", row.names = FALSE, col.names = FALSE, append = TRUE)
     
     
-    glmnet_fit <- glmnet(glm_X/cy, glm_Y/cy,
-                         family = "gaussian", 
-                         alpha=1, 
-                         standardize= FALSE, 
-                         intercept = FALSE, 
-                         penalty.factor= 1/(abs(beta_average)/cy^2/2/length(glm_Y)))
+    ### ---------------------------- --
+    #  Shah & Samworth (2013) -------
+    ### ---------------------------- --
+    # In stabs::stabsel():
+    # - sampling.type = "SS" means Shah & Samworth (2013)
+    # - the package uses B = number of complementary pairs
+    # Here we write m_N instead.
+    # So m_N is not exactly the total number of fitted subsamples;
+    # total number of fitted subsamples is 2 * m_N.
+    #
+    q <- as.integer(1.25*p0)
+    cutoff <- max(0.75, q/p+0.1) # in most cases, it is just 0.75; this is needed to avoid error when p is relatively small
     
-    beta_hat = predict(glmnet_fit,type="coefficients")[-1, ]
-    
-    BIC_vec <- apply(beta_hat, 2, FUN = function(x) {
-      
-      df <- sum(x != 0)
-      LSA <- 0
-      
-      for (k in seq_len(mn)) {
-        diff <- x - beta_subsample_list[[k]]
-        LSA <- LSA +
-          as.numeric(
-            t(diff) %*%
-              second_derivative_subsample_list[[k]] %*%
-              diff
-          )
-      }
-      LSA <- LSA/mn
-      kn * LSA + df * log(N)
-    })
-    
-    
-    beta_hat_optimal_dflambda  = beta_hat[,which.min(BIC_vec)]    
-    lambda_min_dflambda  = glmnet_fit$lambda[which.min(BIC_vec)]
-    BIC_min_dflambda  = min(BIC_vec)   
-    
-    CI_indicator_dflambda <- as.numeric((beta_hat_optimal_dflambda[1:p0] + qnorm(0.975) * SE_hat > beta_true[1:p0]) & (beta_hat_optimal_dflambda[1:p0] - qnorm(0.975) * SE_hat < beta_true[1:p0]))
-    
-    result <- c(loop, beta_hat_optimal_dflambda, SE_hat, CI_indicator_dflambda, BIC_min_dflambda, lambda_min_dflambda, time)
-    
+    t0 <- Sys.time()     
+    res_SS <- stabsel(
+      x = x,
+      y = y,
+      fitfun = glmnet.lasso,
+      args.fitfun = list(family = if (model == "Linear") "gaussian" else "binomial"),
+      cutoff = cutoff,
+      q = q,
+      sampling.type = "SS",
+      B = as.integer(mn/2),
+      papply = lapply
+    )
+    time <- as.numeric(Sys.time() - t0, units = "secs")
+    selected_variable <- rep(0,p)
+    selected_variable[res_SS$selected] <- 1
+    result <- c(loop,  selected_variable, time)
     write.table(t(result), filename3, sep = ",", row.names = FALSE, col.names = FALSE, append = TRUE)
     
+    ### ---------------------------- --
+    # Meinshausen & Buehlmann (2010) -------
+    ### ---------------------------- --
+    # In stabs::stabsel():
+    # - sampling.type = "SS" means Shah & Samworth (2013)
+    # - the package uses B = number of complementary pairs
+    # Here we write m_N instead.
+    # So m_N is not exactly the total number of fitted subsamples;
+    # total number of fitted subsamples is 2 * m_N.
+    #
+    q <- as.integer(1.25*p0)
+    cutoff <- max(0.75, q/p+0.1) # in most cases, it is just 0.75; this is needed to avoid error when p is relatively small
     
-    BIC_vec_loglogp_dflambda <- apply(beta_hat, 2, FUN = function(x) {
-      
-      df <- sum(x != 0)
-      LSA <- 0
-      
-      for (k in seq_len(mn)) {
-        diff <- x - beta_subsample_list[[k]]
-        LSA <- LSA +
-          as.numeric(
-            t(diff) %*%
-              second_derivative_subsample_list[[k]] %*%
-              diff
-          )
-      }
-      
-      ## My changes
-      LSA <- LSA/mn
-      
-      ## My changes
-      kn * LSA + df * log(N) * log(log(p))
-    })
-    
-    beta_hat_optimal_loglogp_dflambda  = beta_hat[,which.min(BIC_vec_loglogp_dflambda)]    
-    
-    lambda_min_loglogp_dflambda  = glmnet_fit$lambda[which.min(BIC_vec_loglogp_dflambda)]
-    
-    BIC_min_loglogp_dflambda  = min(BIC_vec_loglogp_dflambda)  
-    
-    CI_indicator_loglogp_dflambda <- as.numeric((beta_hat_optimal_loglogp_dflambda[1:p0] + qnorm(0.975) * SE_hat > beta_true[1:p0]) & (beta_hat_optimal_loglogp_dflambda[1:p0] - qnorm(0.975) * SE_hat < beta_true[1:p0]))
-    
-    result <- c(loop, beta_hat_optimal_loglogp_dflambda, SE_hat, CI_indicator_loglogp_dflambda, BIC_min_loglogp_dflambda, lambda_min_loglogp_dflambda, time)
-    
+    t0 <- Sys.time()  
+    res_MB <- stabsel(
+      x = x,
+      y = y,
+      fitfun = glmnet.lasso,
+      args.fitfun = list(family = if (model == "Linear") "gaussian" else "binomial"),
+      cutoff = cutoff,
+      q = q,
+      sampling.type = "MB",
+      B = mn,
+      papply = lapply
+    )
+    time <- as.numeric(Sys.time() - t0, units = "secs")
+    selected_variable <- rep(0,p)
+    selected_variable[res_SS$selected] <- 1
+    result <- c(loop,  selected_variable, time)
     write.table(t(result), filename4, sep = ",", row.names = FALSE, col.names = FALSE, append = TRUE)
+    
+
   }
 }
